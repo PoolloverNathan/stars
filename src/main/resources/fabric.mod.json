@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "stars",
+  "version": "${version}",
+  "name": "Curse of the Stars",
+  "description": "Adds several new, very fun curse enchantments.",
+  "authors": [],
+  "contact": {},
+  "license": "GPL-3.0",
+  "icon": "assets/stars/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-datagen": [
+      "org.eu.net.pool.fabric.cots.client.StarsClientKt::datagaen"
+    ],
+    "client": [
+      "org.eu.net.pool.fabric.cots.client.StarsClientKt::init"
+    ],
+    "main": [
+      "org.eu.net.pool.fabric.cots.StarsKt::init"
+    ]
+  },
+  "mixins": [
+    "stars.mixins.json",
+    {
+      "config": "stars.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-language-kotlin": ">=${kotlin_loader_version}",
+    "fabric": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
