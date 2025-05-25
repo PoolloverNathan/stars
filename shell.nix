@@ -3,6 +3,7 @@
 pkgs.mkShell {
   buildInputs = [
     pkgs.gradle_8
+    pkgs.zulu21
     pkgs.bashInteractive
   ];
 }

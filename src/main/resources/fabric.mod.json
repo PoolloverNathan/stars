@@ -11,7 +11,7 @@
   "environment": "*",
   "entrypoints": {
     "fabric-datagen": [
-      "org.eu.net.pool.fabric.cots.client.StarsClientKt::datagaen"
+      "org.eu.net.pool.fabric.cots.client.StarsClientKt::datagen"
     ],
     "client": [
       "org.eu.net.pool.fabric.cots.client.StarsClientKt::init"
@@ -31,6 +31,7 @@
     "fabricloader": ">=${loader_version}",
     "fabric-language-kotlin": ">=${kotlin_loader_version}",
     "fabric": "*",
+    "java": ">=21",
     "minecraft": "${minecraft_version}"
   }
 }
