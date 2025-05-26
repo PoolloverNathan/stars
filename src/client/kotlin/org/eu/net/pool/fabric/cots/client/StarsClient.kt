@@ -4,8 +4,8 @@ import net.fabricmc.fabric.api.datagen.v1.FabricDataGenerator
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricModelProvider
 import net.minecraft.data.client.BlockStateModelGenerator
 import net.minecraft.data.client.ItemModelGenerator
+import org.eu.net.pool.fabric.cots.ScoutCurse
 import org.eu.net.pool.fabric.cots.SilenceCurse
-import org.eu.net.pool.fabric.cots.StoneArmorMaterial
 import org.eu.net.pool.fabric.cots.StoneCurse
 import poollovernathan.fabric.DataContext
 
@@ -18,9 +18,10 @@ fun datagen(gen: FabricDataGenerator) {
         lang("en_us") {
             SilenceCurse.translation = "Curse of Silence"
             StoneCurse.translation = "Curse of Terra" // t3rracat reference??
-            StoneArmorMaterial.armorItems.forEach { (type, item) ->
+            StoneCurse.StoneArmorMaterial.armorItems.forEach { (type, item) ->
                 item.translation = "Stone ${type.name[0] + type.name.substring(1).lowercase()}"
             }
+            ScoutCurse.translation = "Curse of Mercurius"
         }
         provider {
             object: FabricModelProvider(it) {
@@ -28,7 +29,7 @@ fun datagen(gen: FabricDataGenerator) {
 
                 }
                 override fun generateItemModels(p0: ItemModelGenerator) {
-                    StoneArmorMaterial.armorItems.values.forEach(p0::registerArmor)
+                    StoneCurse.StoneArmorMaterial.armorItems.values.forEach(p0::registerArmor)
                 }
             }
         }

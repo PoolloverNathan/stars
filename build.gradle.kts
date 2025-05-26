@@ -95,7 +95,7 @@ tasks.withType<KotlinCompile>().configureEach {
 }
 
 tasks.named("sourcesJar") {
-    mustRunAfter("runDatagen")
+    dependsOn("runDatagen")
 }
 
 tasks.jar {
