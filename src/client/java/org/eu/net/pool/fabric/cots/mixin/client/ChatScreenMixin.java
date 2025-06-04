@@ -8,6 +8,7 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import org.eu.net.pool.fabric.cots.SilenceCurse;
 import org.eu.net.pool.fabric.cots.StarsKt;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -20,9 +21,10 @@ public class ChatScreenMixin {
         if (isActive()) cir.cancel();
     }
 
+    @Unique
     private boolean isActive() {
         var player = MinecraftClient.getInstance().player;
-        return player != null && StarsKt.effectiveLevel(player, SilenceCurse.INSTANCE) >= 1;
+        return player != null && StarsKt.isSilenced(player);
     }
 
     @Redirect(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/DrawContext;fill(IIIII)V"))
