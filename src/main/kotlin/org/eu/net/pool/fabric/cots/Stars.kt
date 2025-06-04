@@ -175,6 +175,19 @@ object StoneCurse: Curse(EquipmentSlot.HEAD, EquipmentSlot.CHEST) {
         }
     }
 }
+object SunCurse: Curse(
+    // blind + glow + emit light
+    EquipmentSlot.HEAD,
+    // glow + emit light
+    EquipmentSlot.CHEST,
+    EquipmentSlot.LEGS,
+    EquipmentSlot.FEET,
+    // emit light
+    EquipmentSlot.MAINHAND,
+    EquipmentSlot.OFFHAND,
+) {
+
+}
 //endregion
 //region Events
 @JvmName("livingEntityTick")
@@ -280,6 +293,7 @@ fun init() {
         SilenceCurse.register("silence".id)
         StoneCurse.register("stone".id)
         LevitationCurse.register("levitation".id)
+        SunCurse.register("sun".id)
     }
     with(RegistryWrapper(Registries.STATUS_EFFECT)) {
         StoneCurse.Petrified.register("petrified".id)

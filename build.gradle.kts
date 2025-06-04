@@ -51,6 +51,8 @@ repositories {
     // See https://docs.gradle.org/current/userguide/declaring_repositories.html
     // for more information about repositories.
     maven { url = uri("https://k51qzi5uqu5dm13gjm40nv9ii9kifawae4f3upf23soytez54i4588v6kb1uw3.ipns.dweb.link/") }
+    maven { url = uri("https://maven.gegy.dev/releases") }
+    maven { url = uri("https://maven.terraformersmc.com/releases") }
 }
 
 dependencies {
@@ -61,6 +63,8 @@ dependencies {
     modImplementation("net.fabricmc:fabric-language-kotlin:${project.property("kotlin_loader_version")}")
 
     modImplementation("net.fabricmc.fabric-api:fabric-api:${project.property("fabric_version")}")
+    modImplementation("dev.lambdaurora.lambdynamiclights:lambdynamiclights-api:4.1.2+1.20.1")
+    modRuntimeOnly("dev.lambdaurora.lambdynamiclights:lambdynamiclights-runtime:4.1.2+1.20.1")
     include(modImplementation("poollovernathan.fabric:mod-tools:1.1.2+1.20.1")!!)
 }
 

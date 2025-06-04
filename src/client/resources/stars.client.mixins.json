@@ -4,7 +4,8 @@
   "package": "org.eu.net.pool.fabric.cots.mixin.client",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "ChatScreenMixin"
+    "ChatScreenMixin",
+    "GameRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1
