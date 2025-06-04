@@ -3,6 +3,7 @@
 //region Metadata
 package org.eu.net.pool.fabric.cots
 
+import com.ibm.icu.impl.Assert
 import net.minecraft.block.AirBlock
 import net.minecraft.block.Block
 import net.minecraft.block.Blocks
@@ -11,6 +12,7 @@ import net.minecraft.block.GrassBlock
 import net.minecraft.block.PlantBlock
 import net.minecraft.block.PressurePlateBlock
 import net.minecraft.block.SeagrassBlock
+import net.minecraft.block.ShapeContext
 import net.minecraft.block.SlabBlock
 import net.minecraft.block.StairsBlock
 import net.minecraft.enchantment.Enchantment
@@ -21,6 +23,7 @@ import net.minecraft.entity.LivingEntity
 import net.minecraft.entity.effect.StatusEffect
 import net.minecraft.entity.effect.StatusEffectCategory
 import net.minecraft.entity.effect.StatusEffectInstance
+import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.*
 import net.minecraft.potion.Potion
 import net.minecraft.recipe.Ingredient
@@ -31,9 +34,21 @@ import net.minecraft.sound.SoundEvents
 import net.minecraft.util.Identifier
 import net.minecraft.util.hit.BlockHitResult
 import net.minecraft.util.hit.EntityHitResult
+import net.minecraft.util.hit.HitResult
+import net.minecraft.util.math.BlockPos
+import net.minecraft.util.math.Direction
+import net.minecraft.util.math.Vec3d
+import net.minecraft.world.RaycastContext
+import org.apache.logging.log4j.Logger
+import org.apache.logging.log4j.core.config.Loggers
 import org.eu.net.pool.fabric.cots.StoneCurse.stoneForm
 import poollovernathan.fabric.RegistryWrapper
 import kotlin.contracts.ExperimentalContracts
+import kotlin.math.min
+import kotlin.math.nextDown
+import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 const val modid = "stars"
 val String.id get() = Identifier(modid, this)
@@ -83,6 +98,9 @@ abstract class Curse(rarity: Rarity = Rarity.RARE, target: EnchantmentTarget, va
 //region Curses
 // TODO: SVC compat
 object SilenceCurse: Curse(EquipmentSlot.HEAD)
+object LevitationCurse: Curse(EquipmentSlot.FEET) {
+    override fun getMaxLevel() = 3
+}
 object StoneCurse: Curse(EquipmentSlot.HEAD, EquipmentSlot.CHEST) {
     const val PETRIFY_TIME = 5*60*20
     object Petrified: StatusEffect(StatusEffectCategory.HARMFUL, 0x696764) {
@@ -97,7 +115,10 @@ object StoneCurse: Curse(EquipmentSlot.HEAD, EquipmentSlot.CHEST) {
         is PickaxeItem -> Items.STONE_PICKAXE
         is ShovelItem -> Items.STONE_SHOVEL
         is SwordItem -> Items.STONE_SWORD
-        is ToolItem -> panic("Unsupported tool class ${javaClass.name}")
+        is ToolItem -> {
+            System.err.println("Unsupported tool class ${javaClass.name}")
+            this
+        }
         // TODO: preserve leather dye
         is ArmorItem -> checkNotNull(StoneArmorMaterial.armorItems[type])
         is BlockItem -> block.stoneForm.asItem()
@@ -171,6 +192,27 @@ fun LivingEntity.extraTick() {
         }
         // TODO: carryon compat >:3
     }
+    effectiveLevel(LevitationCurse, EquipmentSlot.FEET).let { lvl ->
+        if (lvl >= 1) {
+            val targetHeight = lvl * 0.5 + 0.33
+            val currentHeight: Double = with(boundingBox) {
+                // TODO: see how this fares with Pehkui
+                iterRange(minX..maxX.nextDown(), 0.25).minOf { x: Double ->
+                    iterRange(minZ..maxZ.nextDown(), 0.25).minOf { z: Double ->
+                        with(world.raycast(RaycastContext(Vec3d(x, minY, z), Vec3d(x, minY - targetHeight * 2, z), RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, the<LivingEntity>()))) {
+                            when (type) {
+                                HitResult.Type.MISS -> targetHeight * 2
+                                HitResult.Type.BLOCK -> y - pos.y
+                                else -> throw AssertionError("I read the code and you should not be here.")
+                            }
+                        }
+                    }
+                }
+            }
+            if (this is PlayerEntity && abilities.flying) return@let
+            addVelocity(0.0, (targetHeight - currentHeight) / 5 - velocity.y / 3, 0.0)
+        }
+    }
     if (effectiveLevel(StoneCurse, EquipmentSlot.HEAD) >= 1) {
         // TODO: figure out why this raycast is jank
         with(raycast(8.0, 0.0f, false)) {
@@ -197,11 +239,36 @@ fun LivingEntity.extraTick() {
 }
 //endregion
 //region Chores
-fun panic(msg: String): Nothing = with(Thread.currentThread()) {
-    with(stackTrace[1]) {
-        System.err.println("thread '${name}' panicked at $fileName:$lineNumber: $msg")
-        Runtime.getRuntime().halt(100)
-        checkNotNull<Nothing>(null)
+fun <T> T.the() = this
+
+fun iterRange(range: ClosedRange<Double>, step: Double = 1.0) = sequence {
+    var n = range.start
+    while (n < range.endInclusive) {
+        yield(n)
+        n += step
+    }
+    yield(range.endInclusive)
+}
+fun iterRange(range: ClosedRange<Int>, step: Int = 1) = sequence {
+    var n = range.start
+    while (n < range.endInclusive) {
+        yield(n)
+        n += step
+    }
+    yield(range.endInclusive)
+}
+fun iterRange(range: OpenEndRange<Double>, step: Double = 1.0) = sequence {
+    var n = range.start
+    while (n < range.endExclusive) {
+        yield(n)
+        n += step
+    }
+}
+fun iterRange(range: OpenEndRange<Int>, step: Int = 1) = sequence {
+    var n = range.start
+    while (n < range.endExclusive) {
+        yield(n)
+        n += step
     }
 }
 
@@ -212,6 +279,7 @@ fun init() {
     with(RegistryWrapper(Registries.ENCHANTMENT)) {
         SilenceCurse.register("silence".id)
         StoneCurse.register("stone".id)
+        LevitationCurse.register("levitation".id)
     }
     with(RegistryWrapper(Registries.STATUS_EFFECT)) {
         StoneCurse.Petrified.register("petrified".id)

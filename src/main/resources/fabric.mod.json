@@ -33,5 +33,8 @@
     "fabric": "*",
     "java": ">=21",
     "minecraft": "${minecraft_version}"
+  },
+  "recommends": {
+     "enchdesc": "*"
   }
 }
