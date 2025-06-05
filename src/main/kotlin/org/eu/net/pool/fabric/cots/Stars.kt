@@ -186,7 +186,9 @@ object SunCurse: Curse(
     EquipmentSlot.MAINHAND,
     EquipmentSlot.OFFHAND,
 ) {
-
+    // TODO:
+    //  increase mob detection range
+    //  blind viewers as well?
 }
 //endregion
 //region Events

@@ -6,7 +6,7 @@
 pkgs.mkShell {
   buildInputs = [
     pkgs.gradle_8
-    pkgs.zulu21
+    pkgs.zulu17
     pkgs.bashInteractive
     nixGL.auto.nixGLDefault
   ];
