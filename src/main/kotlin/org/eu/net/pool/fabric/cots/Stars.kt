@@ -55,7 +55,7 @@ interface EnchantmentDelegate {
 }
 
 fun LivingEntity.effectiveLevel(e: Enchantment, vararg slots: EquipmentSlot) =
-    (slots.takeUnless(Array<_>::isEmpty) ?: arrayOf(
+    (slots.takeUnless { it.isEmpty() } ?: arrayOf(
         EquipmentSlot.FEET,
         EquipmentSlot.LEGS,
         EquipmentSlot.CHEST,
