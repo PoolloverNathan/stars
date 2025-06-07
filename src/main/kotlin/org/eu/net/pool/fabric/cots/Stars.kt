@@ -54,18 +54,26 @@ interface EnchantmentDelegate {
     fun ItemStack.getLevel(enchantment: Enchantment, slot: EquipmentSlot): Int
 }
 
-fun LivingEntity.effectiveLevel(e: Enchantment, vararg slots: EquipmentSlot): Int {
-    val slots = if (slots.isEmpty()) arrayOf(EquipmentSlot.FEET, EquipmentSlot.LEGS, EquipmentSlot.CHEST, EquipmentSlot.HEAD) else slots
-    var n = 0
-    slots.forEach {
-        val stack = getEquippedStack(it)
-        EnchantmentHelper.get(stack).forEach { (e2, lvl) ->
-            if (e2 == e) n += lvl
-            else if (e2 is EnchantmentDelegate) n += e2.run { stack.getLevel(e, it) }
+fun LivingEntity.effectiveLevel(e: Enchantment, vararg slots: EquipmentSlot) =
+    (slots.takeUnless(Array<_>::isEmpty) ?: arrayOf(
+        EquipmentSlot.FEET,
+        EquipmentSlot.LEGS,
+        EquipmentSlot.CHEST,
+        EquipmentSlot.HEAD
+    )).let {
+        it.sumOf {
+            val stack = getEquippedStack(it)
+            EnchantmentHelper.get(stack).entries.sumOf { (e2, lvl) ->
+                if (e2 == e)
+                    lvl
+                else if (e2 is EnchantmentDelegate)
+                    e2.run { stack.getLevel(e, it) }
+                else 0
+            }
+        } + it.maxOf {
+            innateCurses.curses.getOrDefault(e to it, 0)
         }
     }
-    return n
-}
 
 val LivingEntity.isSilenced @JvmName("isSilenced") get() = effectiveLevel(SilenceCurse) >= 1 || hasStatusEffect(StoneCurse.Petrified)
 
