@@ -35,6 +35,7 @@ import org.eu.net.pool.fabric.cots.LevitationCurse
 import org.eu.net.pool.fabric.cots.SilenceCurse
 import org.eu.net.pool.fabric.cots.StoneCurse
 import org.eu.net.pool.fabric.cots.SunCurse
+import org.eu.net.pool.fabric.cots.TranslationKeys
 import org.eu.net.pool.fabric.cots.effectiveLevel
 import org.eu.net.pool.fabric.cots.id
 import org.eu.net.pool.fabric.cots.modid
@@ -129,6 +130,13 @@ fun datagen(gen: FabricDataGenerator) {
             StoneCurse.Petrified.PetrPotion.finishTranslationKey("$modid.").translation = "Petrification"
             StoneCurse.Petrified.LongPetrPotion.finishTranslationKey("$modid.").translation = "Petrification"
             StoneCurse.Petrified.PermPetrPotion.finishTranslationKey("$modid.").translation = "Petrification"
+
+            TranslationKeys.innateCurse(null, true).translation = "%s's %s is innately cursed with level %4\$s of %3\$s"
+            TranslationKeys.innateCurse(null, false).translation = "%s's %s is not innately cursed with %s"
+            TranslationKeys.innateCurse(true, true).translation = "Made %s's %s innately cursed with level %4\$s of %3\$s%s"
+            TranslationKeys.innateCurse(true, false).translation = "Made %s's %s no longer innately cursed with %s"
+            TranslationKeys.innateCurse(false, true).translation = "Made %s innately cursed with level %3\$s of %2\$s"
+            TranslationKeys.innateCurse(false, false).translation = "Made %s no longer innately cursed with %s"
         }
         provider {
             object: FabricAdvancementProvider(it) {
