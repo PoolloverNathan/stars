@@ -296,6 +296,7 @@ fun iterRange(range: OpenEndRange<Int>, step: Int = 1) = sequence {
 
 data class InnateCurseComponent(val entity: Entity, val curses: MutableMap<Pair<Enchantment, EquipmentSlot>, Int> = mutableMapOf()): Component, AutoSyncedComponent {
     override fun readFromNbt(nbt: NbtCompound) {
+        curses.clear()
         nbt.getList("InnateCurses", NbtElement.COMPOUND_TYPE.toInt()).filterIsInstance<NbtCompound>().each {
             curses.put((getString("Enchantment").takeIf { it != "" }?.let(Identifier::tryParse)?.let(Registries.ENCHANTMENT::get) ?: return@each) to (getInt("Slot").let(EquipmentSlot.entries::getOrNull) ?: return@each), getInt("Level"))
         }
@@ -352,7 +353,7 @@ fun init() {
         Shim.makeContext(d).run {
             "stars" {
                 "innateCurses" {
-                    fun CommandContext<ServerCommandSource>.curseSlotSection(body: (CommandContext.CommandExecution<ServerCommandSource>.() -> Pair<Enchantment, EquipmentSlot>) -> Unit) {
+                    fun CommandContext<ServerCommandSource>.curseSlotSection(body: CommandContext<ServerCommandSource>.(CommandContext.CommandExecution<ServerCommandSource>.() -> Pair<Enchantment, EquipmentSlot>) -> Unit) {
                         arg("curse", RegistryKeyArgumentType.registryKey(RegistryKeys.ENCHANTMENT)) { curse ->
                             for (slot in EquipmentSlot.entries) {
                                 slot.name.lowercase().invoke {
@@ -364,7 +365,7 @@ fun init() {
                         }
                     }
 
-                    fun CommandContext<ServerCommandSource>.curseMaybeSlotSection(body: (CommandContext.CommandExecution<ServerCommandSource>.() -> Pair<Enchantment, EquipmentSlot?>) -> Unit) {
+                    fun CommandContext<ServerCommandSource>.curseMaybeSlotSection(body: CommandContext<ServerCommandSource>.(CommandContext.CommandExecution<ServerCommandSource>.() -> Pair<Enchantment, EquipmentSlot?>) -> Unit) {
                         arg("curse", RegistryKeyArgumentType.registryKey(RegistryKeys.ENCHANTMENT)) { curse ->
                             body {
                                 Registries.ENCHANTMENT[this.curse()]!! to null
