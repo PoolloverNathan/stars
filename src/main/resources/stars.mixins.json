@@ -4,6 +4,7 @@
   "package": "org.eu.net.pool.fabric.cots.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "BindingCurseEnchantmentMixin",
     "LivingEntityMixin"
   ],
   "injectors": {

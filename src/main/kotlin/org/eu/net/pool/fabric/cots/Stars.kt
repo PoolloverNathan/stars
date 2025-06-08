@@ -11,6 +11,7 @@ import dev.onyxstudios.cca.api.v3.entity.EntityComponentFactoryRegistry
 import dev.onyxstudios.cca.api.v3.entity.RespawnCopyStrategy
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
 import net.minecraft.block.*
+import net.minecraft.command.CommandException
 import net.minecraft.command.argument.RegistryKeyArgumentType
 import net.minecraft.enchantment.Enchantment
 import net.minecraft.enchantment.EnchantmentHelper
@@ -34,6 +35,7 @@ import net.minecraft.registry.tag.ItemTags
 import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.sound.SoundCategory
 import net.minecraft.sound.SoundEvents
+import net.minecraft.text.Text
 import net.minecraft.util.Identifier
 import net.minecraft.util.hit.BlockHitResult
 import net.minecraft.util.hit.EntityHitResult
@@ -77,7 +79,9 @@ fun LivingEntity.effectiveLevel(e: Enchantment, vararg slots: EquipmentSlot) =
 
 val LivingEntity.isSilenced @JvmName("isSilenced") get() = effectiveLevel(SilenceCurse) >= 1 || hasStatusEffect(StoneCurse.Petrified)
 
-abstract class Curse(rarity: Rarity = Rarity.RARE, target: EnchantmentTarget, vararg val slots: EquipmentSlot): Enchantment(rarity, target, slots) {
+interface InnateCurseCompatible
+
+abstract class Curse(rarity: Rarity = Rarity.RARE, target: EnchantmentTarget, vararg val slots: EquipmentSlot): Enchantment(rarity, target, slots), InnateCurseCompatible {
     constructor(rarity: Rarity = Rarity.RARE, vararg slots: EquipmentSlot): this(rarity, if (slots.size == 1) {
         when (slots[0]) {
             EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND -> EnchantmentTarget.WEAPON
@@ -317,6 +321,7 @@ data class InnateCurseComponent(val entity: Entity, val curses: MutableMap<Pair<
 
 val LivingEntity.innateCurses: InnateCurseComponent get() = getComponent(innateCurseKey)
 
+val EquipmentSlot.translationKey get() = "slot.equipment.$ordinal"
 val innateCurseKey: ComponentKey<InnateCurseComponent> = ComponentRegistry.getOrCreate("innate_curses".id, InnateCurseComponent::class.java)
 
 // TODO: more component factory types (chunk, world, level)
@@ -326,8 +331,20 @@ fun entityComponents(factory: EntityComponentFactoryRegistry) {
 }
 
 object TranslationKeys {
-    fun innateCurse(settingSlot: Boolean?, value: Boolean) =
-        "text.stars.innate_curse.${if (settingSlot == null) { "get.$value" } else { "set.$value" + if (settingSlot) { ".slot" } else { "" }}}"
+    val innateCurseIncompatible = "text.stars.innate_curse.incompatible"
+
+    fun innateCurseKey(setting: Boolean, slot: Boolean, value: Boolean) =
+        "text.stars.innate_curse.${if (setting) "set" else "get"}${if (slot) ".slot" else ""}.$value"
+
+    /**
+     * Constructs a translated Text object for the /stars innateCurse command.
+     * @param setting Whether this command is modifying an innate curse ("made" vs "is")
+     * @param slot The slot that the command applies to or null
+     * @param enchantment The enchantment the command applies to
+     * @param level The level of innate curse or null for none
+     */
+    fun innateCurse(setting: Boolean, target: Text, slot: EquipmentSlot?, enchantment: Enchantment, level: Int?): Text =
+        Text.translatable(innateCurseKey(setting, slot != null, level != null), target, slot?.translationKey, Text.translatable(enchantment.translationKey), Text.literal("$level"))
 }
 
 fun init() {
@@ -356,8 +373,8 @@ fun init() {
                     fun CommandContext<ServerCommandSource>.curseSlotSection(body: CommandContext<ServerCommandSource>.(CommandContext.CommandExecution<ServerCommandSource>.() -> Pair<Enchantment, EquipmentSlot>) -> Unit) {
                         arg("curse", RegistryKeyArgumentType.registryKey(RegistryKeys.ENCHANTMENT)) { curse ->
                             for (slot in EquipmentSlot.entries) {
-                                slot.name.lowercase().invoke {
-                                    body {
+                                slot.name.lowercase().invoke a@{
+                                    this@a.body {
                                         Registries.ENCHANTMENT[this.curse()]!! to slot
                                     }
                                 }
@@ -381,14 +398,22 @@ fun init() {
                     }
 
                     fun CommandContext<ServerCommandSource>.section(
-                        getter: CommandContext.CommandExecution<ServerCommandSource>.(Pair<Enchantment, EquipmentSlot>) -> Boolean,
+                        name: CommandContext.CommandExecution<ServerCommandSource>.() -> Text,
+                        getter: CommandContext.CommandExecution<ServerCommandSource>.(Pair<Enchantment, EquipmentSlot>) -> Int,
                         setter: CommandContext.CommandExecution<ServerCommandSource>.(Enchantment, EquipmentSlot, Int) -> Unit
                     ) {
-                        // TODO: feedback
                         "get" {
                             curseSlotSection { cs ->
-                                runs {
-                                    cs()
+                                runsValue {
+                                    val cs = cs()
+                                    val lvl = getter(the(), cs)
+                                    val text = { lvl: Int? -> TranslationKeys.innateCurse(true, name(), null, cs.first, lvl) }
+                                    if (lvl > 0) {
+                                        reply(true) { text(lvl) }
+                                    } else {
+                                        throw CommandException(text(null))
+                                    }
+                                    lvl
                                 }
                             }
                         }
@@ -397,6 +422,9 @@ fun init() {
                                 intArg("level", 0) { level ->
                                     runs {
                                         val (ench, slot) = cs()
+                                        check(ench is InnateCurseCompatible) {
+                                            throw CommandException(Text.translatable(TranslationKeys.innateCurseIncompatible, ench.translationKey))
+                                        }
                                         if (slot == null) {
                                             for (slot in EquipmentSlot.entries) {
                                                 setter(ench, slot, level())
@@ -404,15 +432,14 @@ fun init() {
                                         } else {
                                             setter(ench, slot, level())
                                         }
+                                        reply(true) { TranslationKeys.innateCurse(true, name(), null, ench, level().takeIf { it > 0 }) }
                                     }
                                 }
                             }
                         }
                     }
                     playerArg { target ->
-                        section({
-                            target().innateCurses.curses.getOrDefault(it, 0) > 0
-                        }) { ench, slot, lvl ->
+                        section({ target().name }, { target().innateCurses.curses.getOrDefault(it, 0) }) { ench, slot, lvl ->
                             target().innateCurses.run {
                                 if (lvl <= 0)
                                     curses.remove(ench to slot)
