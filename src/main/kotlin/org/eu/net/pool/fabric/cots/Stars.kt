@@ -3,21 +3,20 @@
 //region Metadata
 package org.eu.net.pool.fabric.cots
 
-import com.ibm.icu.impl.Assert
-import net.minecraft.block.AirBlock
-import net.minecraft.block.Block
-import net.minecraft.block.Blocks
-import net.minecraft.block.CarpetBlock
-import net.minecraft.block.GrassBlock
-import net.minecraft.block.PlantBlock
-import net.minecraft.block.PressurePlateBlock
-import net.minecraft.block.SeagrassBlock
-import net.minecraft.block.ShapeContext
-import net.minecraft.block.SlabBlock
-import net.minecraft.block.StairsBlock
+import dev.onyxstudios.cca.api.v3.component.Component
+import dev.onyxstudios.cca.api.v3.component.ComponentKey
+import dev.onyxstudios.cca.api.v3.component.ComponentRegistry
+import dev.onyxstudios.cca.api.v3.component.sync.AutoSyncedComponent
+import dev.onyxstudios.cca.api.v3.entity.EntityComponentFactoryRegistry
+import dev.onyxstudios.cca.api.v3.entity.RespawnCopyStrategy
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
+import net.minecraft.block.*
+import net.minecraft.command.CommandException
+import net.minecraft.command.argument.RegistryKeyArgumentType
 import net.minecraft.enchantment.Enchantment
 import net.minecraft.enchantment.EnchantmentHelper
 import net.minecraft.enchantment.EnchantmentTarget
+import net.minecraft.entity.Entity
 import net.minecraft.entity.EquipmentSlot
 import net.minecraft.entity.LivingEntity
 import net.minecraft.entity.effect.StatusEffect
@@ -25,55 +24,64 @@ import net.minecraft.entity.effect.StatusEffectCategory
 import net.minecraft.entity.effect.StatusEffectInstance
 import net.minecraft.entity.player.PlayerEntity
 import net.minecraft.item.*
+import net.minecraft.nbt.NbtCompound
+import net.minecraft.nbt.NbtElement
+import net.minecraft.nbt.NbtList
 import net.minecraft.potion.Potion
 import net.minecraft.recipe.Ingredient
 import net.minecraft.registry.Registries
+import net.minecraft.registry.RegistryKeys
 import net.minecraft.registry.tag.ItemTags
+import net.minecraft.server.command.ServerCommandSource
 import net.minecraft.sound.SoundCategory
 import net.minecraft.sound.SoundEvents
+import net.minecraft.text.Text
 import net.minecraft.util.Identifier
 import net.minecraft.util.hit.BlockHitResult
 import net.minecraft.util.hit.EntityHitResult
 import net.minecraft.util.hit.HitResult
-import net.minecraft.util.math.BlockPos
-import net.minecraft.util.math.Direction
 import net.minecraft.util.math.Vec3d
 import net.minecraft.world.RaycastContext
-import org.apache.logging.log4j.Logger
-import org.apache.logging.log4j.core.config.Loggers
 import org.eu.net.pool.fabric.cots.StoneCurse.stoneForm
-import poollovernathan.fabric.RegistryWrapper
+import poollovernathan.fabric.*
 import kotlin.contracts.ExperimentalContracts
-import kotlin.math.min
 import kotlin.math.nextDown
-import kotlin.math.pow
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 const val modid = "stars"
 val String.id get() = Identifier(modid, this)
 //endregion
 //region Helpers
+
 interface EnchantmentDelegate {
     fun ItemStack.getLevel(enchantment: Enchantment, slot: EquipmentSlot): Int
 }
 
-fun LivingEntity.effectiveLevel(e: Enchantment, vararg slots: EquipmentSlot): Int {
-    val slots = if (slots.isEmpty()) arrayOf(EquipmentSlot.FEET, EquipmentSlot.LEGS, EquipmentSlot.CHEST, EquipmentSlot.HEAD) else slots
-    var n = 0
-    slots.forEach {
-        val stack = getEquippedStack(it)
-        EnchantmentHelper.get(stack).forEach { (e2, lvl) ->
-            if (e2 == e) n += lvl
-            else if (e2 is EnchantmentDelegate) n += e2.run { stack.getLevel(e, it) }
+fun LivingEntity.effectiveLevel(e: Enchantment, vararg slots: EquipmentSlot) =
+    (slots.takeUnless { it.isEmpty() } ?: arrayOf(
+        EquipmentSlot.FEET,
+        EquipmentSlot.LEGS,
+        EquipmentSlot.CHEST,
+        EquipmentSlot.HEAD
+    )).let {
+        it.sumOf {
+            val stack = getEquippedStack(it)
+            EnchantmentHelper.get(stack).entries.sumOf { (e2, lvl) ->
+                if (e2 == e)
+                    lvl
+                else if (e2 is EnchantmentDelegate)
+                    e2.run { stack.getLevel(e, it) }
+                else 0
+            }
+        } + it.maxOf {
+            innateCurses.curses.getOrDefault(e to it, 0)
         }
     }
-    return n
-}
 
 val LivingEntity.isSilenced @JvmName("isSilenced") get() = effectiveLevel(SilenceCurse) >= 1 || hasStatusEffect(StoneCurse.Petrified)
 
-abstract class Curse(rarity: Rarity = Rarity.RARE, target: EnchantmentTarget, vararg val slots: EquipmentSlot): Enchantment(rarity, target, slots) {
+interface InnateCurseCompatible
+
+abstract class Curse(rarity: Rarity = Rarity.RARE, target: EnchantmentTarget, vararg val slots: EquipmentSlot): Enchantment(rarity, target, slots), InnateCurseCompatible {
     constructor(rarity: Rarity = Rarity.RARE, vararg slots: EquipmentSlot): this(rarity, if (slots.size == 1) {
         when (slots[0]) {
             EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND -> EnchantmentTarget.WEAPON
@@ -96,6 +104,7 @@ abstract class Curse(rarity: Rarity = Rarity.RARE, target: EnchantmentTarget, va
 }
 //endregion
 //region Curses
+
 // TODO: SVC compat
 object SilenceCurse: Curse(EquipmentSlot.HEAD)
 object LevitationCurse: Curse(EquipmentSlot.FEET) {
@@ -192,6 +201,7 @@ object SunCurse: Curse(
 }
 //endregion
 //region Events
+
 @JvmName("livingEntityTick")
 fun LivingEntity.extraTick() {
     if (effectiveLevel(StoneCurse, EquipmentSlot.CHEST) >= 1) {
@@ -254,6 +264,7 @@ fun LivingEntity.extraTick() {
 }
 //endregion
 //region Chores
+
 fun <T> T.the() = this
 
 fun iterRange(range: ClosedRange<Double>, step: Double = 1.0) = sequence {
@@ -287,6 +298,55 @@ fun iterRange(range: OpenEndRange<Int>, step: Int = 1) = sequence {
     }
 }
 
+data class InnateCurseComponent(val entity: Entity, val curses: MutableMap<Pair<Enchantment, EquipmentSlot>, Int> = mutableMapOf()): Component, AutoSyncedComponent {
+    override fun readFromNbt(nbt: NbtCompound) {
+        curses.clear()
+        nbt.getList("InnateCurses", NbtElement.COMPOUND_TYPE.toInt()).filterIsInstance<NbtCompound>().each {
+            curses.put((getString("Enchantment").takeIf { it != "" }?.let(Identifier::tryParse)?.let(Registries.ENCHANTMENT::get) ?: return@each) to (getInt("Slot").let(EquipmentSlot.entries::getOrNull) ?: return@each), getInt("Level"))
+        }
+    }
+
+    override fun writeToNbt(nbt: NbtCompound) {
+        nbt.put("InnateCurses", NbtList().apply {
+            curses.entries.each {
+                add(NbtCompound().apply {
+                    putString("Enchantment", (Registries.ENCHANTMENT.getId(key.first) ?: return@each).toString())
+                    putInt("Slot", key.second.ordinal)
+                    putInt("Level", value)
+                })
+            }
+        })
+    }
+}
+
+val LivingEntity.innateCurses: InnateCurseComponent get() = getComponent(innateCurseKey)
+
+val EquipmentSlot.translationKey get() = "slot.equipment.$ordinal"
+val innateCurseKey: ComponentKey<InnateCurseComponent> = ComponentRegistry.getOrCreate("innate_curses".id, InnateCurseComponent::class.java)
+
+// TODO: more component factory types (chunk, world, level)
+fun entityComponents(factory: EntityComponentFactoryRegistry) {
+    factory.registerFor(LivingEntity::class.java, innateCurseKey, ::InnateCurseComponent)
+    factory.registerForPlayers(innateCurseKey, ::InnateCurseComponent, RespawnCopyStrategy.CHARACTER)
+}
+
+object TranslationKeys {
+    val innateCurseIncompatible = "text.stars.innate_curse.incompatible"
+
+    fun innateCurseKey(setting: Boolean, slot: Boolean, value: Boolean) =
+        "text.stars.innate_curse.${if (setting) "set" else "get"}${if (slot) ".slot" else ""}.$value"
+
+    /**
+     * Constructs a translated Text object for the /stars innateCurse command.
+     * @param setting Whether this command is modifying an innate curse ("made" vs "is")
+     * @param slot The slot that the command applies to or null
+     * @param enchantment The enchantment the command applies to
+     * @param level The level of innate curse or null for none
+     */
+    fun innateCurse(setting: Boolean, target: Text, slot: EquipmentSlot?, enchantment: Enchantment, level: Int?): Text =
+        Text.translatable(innateCurseKey(setting, slot != null, level != null), target, slot?.translationKey, Text.translatable(enchantment.translationKey), Text.literal("$level"))
+}
+
 fun init() {
     with(RegistryWrapper.items) {
         StoneCurse.StoneArmorMaterial.armorItems.forEach { type, item -> item.register("stone_${type.name.lowercase()}".id) }
@@ -304,6 +364,94 @@ fun init() {
         StoneCurse.Petrified.PetrPotion.register("petrify".id)
         StoneCurse.Petrified.LongPetrPotion.register("petrify_long".id)
         StoneCurse.Petrified.PermPetrPotion.register("petrify_permanent".id)
+    }
+
+    CommandRegistrationCallback.EVENT.register { /* doctor */ d, r, e ->
+        Shim.makeContext(d).run {
+            "stars" {
+                "innateCurses" {
+                    fun CommandContext<ServerCommandSource>.curseSlotSection(body: CommandContext<ServerCommandSource>.(CommandContext.CommandExecution<ServerCommandSource>.() -> Pair<Enchantment, EquipmentSlot>) -> Unit) {
+                        arg("curse", RegistryKeyArgumentType.registryKey(RegistryKeys.ENCHANTMENT)) { curse ->
+                            for (slot in EquipmentSlot.entries) {
+                                slot.name.lowercase().invoke a@{
+                                    this@a.body {
+                                        Registries.ENCHANTMENT[this.curse()]!! to slot
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    fun CommandContext<ServerCommandSource>.curseMaybeSlotSection(body: CommandContext<ServerCommandSource>.(CommandContext.CommandExecution<ServerCommandSource>.() -> Pair<Enchantment, EquipmentSlot?>) -> Unit) {
+                        arg("curse", RegistryKeyArgumentType.registryKey(RegistryKeys.ENCHANTMENT)) { curse ->
+                            body {
+                                Registries.ENCHANTMENT[this.curse()]!! to null
+                            }
+                            for (slot in EquipmentSlot.entries) {
+                                slot.name.lowercase().invoke {
+                                    body {
+                                        Registries.ENCHANTMENT[this.curse()]!! to slot
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    fun CommandContext<ServerCommandSource>.section(
+                        name: CommandContext.CommandExecution<ServerCommandSource>.() -> Text,
+                        getter: CommandContext.CommandExecution<ServerCommandSource>.(Pair<Enchantment, EquipmentSlot>) -> Int,
+                        setter: CommandContext.CommandExecution<ServerCommandSource>.(Enchantment, EquipmentSlot, Int) -> Unit
+                    ) {
+                        "get" {
+                            curseSlotSection { cs ->
+                                runsValue {
+                                    val cs = cs()
+                                    val lvl = getter(the(), cs)
+                                    val text = { lvl: Int? -> TranslationKeys.innateCurse(true, name(), null, cs.first, lvl) }
+                                    if (lvl > 0) {
+                                        reply(true) { text(lvl) }
+                                    } else {
+                                        throw CommandException(text(null))
+                                    }
+                                    lvl
+                                }
+                            }
+                        }
+                        "set" {
+                            curseMaybeSlotSection { cs ->
+                                intArg("level", 0) { level ->
+                                    runs {
+                                        val (ench, slot) = cs()
+                                        check(ench is InnateCurseCompatible) {
+                                            throw CommandException(Text.translatable(TranslationKeys.innateCurseIncompatible, ench.translationKey))
+                                        }
+                                        if (slot == null) {
+                                            for (slot in EquipmentSlot.entries) {
+                                                setter(ench, slot, level())
+                                            }
+                                        } else {
+                                            setter(ench, slot, level())
+                                        }
+                                        reply(true) { TranslationKeys.innateCurse(true, name(), null, ench, level().takeIf { it > 0 }) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    playerArg { target ->
+                        section({ target().name }, { target().innateCurses.curses.getOrDefault(it, 0) }) { ench, slot, lvl ->
+                            target().innateCurses.run {
+                                if (lvl <= 0)
+                                    curses.remove(ench to slot)
+                                else
+                                    curses[ench to slot] = lvl
+                            }
+                            innateCurseKey.sync(target())
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 //endregion

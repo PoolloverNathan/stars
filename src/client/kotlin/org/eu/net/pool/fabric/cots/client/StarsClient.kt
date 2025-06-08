@@ -35,10 +35,13 @@ import org.eu.net.pool.fabric.cots.LevitationCurse
 import org.eu.net.pool.fabric.cots.SilenceCurse
 import org.eu.net.pool.fabric.cots.StoneCurse
 import org.eu.net.pool.fabric.cots.SunCurse
+import org.eu.net.pool.fabric.cots.TranslationKeys
 import org.eu.net.pool.fabric.cots.effectiveLevel
 import org.eu.net.pool.fabric.cots.id
 import org.eu.net.pool.fabric.cots.modid
+import org.eu.net.pool.fabric.cots.translationKey
 import poollovernathan.fabric.DataContext
+import poollovernathan.fabric.each
 import java.util.Optional
 import java.util.function.Consumer
 
@@ -129,6 +132,40 @@ fun datagen(gen: FabricDataGenerator) {
             StoneCurse.Petrified.PetrPotion.finishTranslationKey("$modid.").translation = "Petrification"
             StoneCurse.Petrified.LongPetrPotion.finishTranslationKey("$modid.").translation = "Petrification"
             StoneCurse.Petrified.PermPetrPotion.finishTranslationKey("$modid.").translation = "Petrification"
+
+            EquipmentSlot.HEAD.translationKey.translation = "Head"
+            EquipmentSlot.CHEST.translationKey.translation = "Chest"
+            EquipmentSlot.LEGS.translationKey.translation = "Legs"
+            EquipmentSlot.FEET.translationKey.translation = "Feet"
+            EquipmentSlot.MAINHAND.translationKey.translation = "Main Hand"
+            EquipmentSlot.OFFHAND.translationKey.translation = "Off Hand"
+
+            with(object {
+                val target = "%1\$s"
+                val slot = "%2\$s"
+                val enchant = "%3\$s"
+                val level = "%4\$s"
+            }) {
+                // TODO: is there some way to generate these?
+                TranslationKeys.innateCurseKey(false, false, true).translation =
+                    "$target is innately cursed with level $level of $enchant"
+                TranslationKeys.innateCurseKey(false, false, false).translation =
+                    "$target is not innately cursed with $enchant"
+                TranslationKeys.innateCurseKey(false, true, true).translation =
+                    "$target's $slot is innately cursed with level $level of $enchant"
+                TranslationKeys.innateCurseKey(false, true, false).translation =
+                    "$target's $slot is not innately cursed with %s"
+                TranslationKeys.innateCurseKey(true, true, true).translation =
+                    "Made $target's $slot innately cursed with level $level of $enchant"
+                TranslationKeys.innateCurseKey(true, true, false).translation =
+                    "Made $target's $slot no longer innately cursed with %s"
+                TranslationKeys.innateCurseKey(true, false, true).translation =
+                    "Made $target innately cursed with level $level of $enchant"
+                TranslationKeys.innateCurseKey(true, false, false).translation =
+                    "Made $target no longer innately cursed with $enchant"
+            }
+
+            TranslationKeys.innateCurseIncompatible.translation = "%s is not compatible with innate curses"
         }
         provider {
             object: FabricAdvancementProvider(it) {

@@ -18,6 +18,9 @@
     ],
     "main": [
       "org.eu.net.pool.fabric.cots.StarsKt::init"
+    ],
+    "cardinal-components-entity": [
+      "org.eu.net.pool.fabric.cots.StarsKt::entityComponents"
     ]
   },
   "mixins": [
@@ -36,5 +39,10 @@
   },
   "recommends": {
      "enchdesc": "*"
+  },
+  "custom": {
+    "cardinal-components": [
+      "stars:innate_curses"
+    ]
   }
 }
