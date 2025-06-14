@@ -32,6 +32,7 @@ import net.minecraft.registry.Registries
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
 import org.eu.net.pool.fabric.cots.LevitationCurse
+import org.eu.net.pool.fabric.cots.NoInventoryCurse
 import org.eu.net.pool.fabric.cots.SilenceCurse
 import org.eu.net.pool.fabric.cots.StoneCurse
 import org.eu.net.pool.fabric.cots.SunCurse
@@ -105,7 +106,6 @@ class AdvancementBuilder(val id: String, val builder: context(Advancement.Builde
 
 fun enchantedWith(enchantment: Enchantment, range: NumberRange.IntRange = NumberRange.IntRange.ANY) = ItemPredicate.Builder.create().enchantment(EnchantmentPredicate(enchantment, range)).build()
 
-
 val Enchantment.descriptionKey get() = Registries.ENCHANTMENT.getId(this)?.run {
     if (namespace == "minecraft") {
         "enchantment.$path.desc"
@@ -120,11 +120,13 @@ fun datagen(gen: FabricDataGenerator) {
             SilenceCurse.translation = "Curse of Silence"
             SilenceCurse.descriptionKey?.translation = "Wearer loses the ability to speak."
             StoneCurse.translation = "Curse of Terra" // t3rracat reference??
-            StoneCurse.descriptionKey?.translation = "Items turn to stone."
+            StoneCurse.descriptionKey?.translation = "Held and equipped items turn to stone."
             LevitationCurse.translation = "Curse of the Hanged Man"
             LevitationCurse.descriptionKey?.translation = "Levitate above the ground at all times."
             SunCurse.translation = "Curse of Sol"
             SunCurse.descriptionKey?.translation = "Very strong light emanates from the item."
+            NoInventoryCurse.translation = "Curse of the Settler"
+            NoInventoryCurse.descriptionKey?.translation = "Inventory size is reduced to 1."
             StoneCurse.StoneArmorMaterial.armorItems.forEach { (type, item) ->
                 item.translation = "Stone ${type.name[0] + type.name.substring(1).lowercase()}"
             }

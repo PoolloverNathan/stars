@@ -10,6 +10,8 @@ import dev.onyxstudios.cca.api.v3.component.sync.AutoSyncedComponent
 import dev.onyxstudios.cca.api.v3.entity.EntityComponentFactoryRegistry
 import dev.onyxstudios.cca.api.v3.entity.RespawnCopyStrategy
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback
+import net.fabricmc.fabric.api.event.Event
+import net.fabricmc.fabric.api.event.EventFactory
 import net.minecraft.block.*
 import net.minecraft.command.CommandException
 import net.minecraft.command.argument.RegistryKeyArgumentType
@@ -44,8 +46,10 @@ import net.minecraft.util.math.Vec3d
 import net.minecraft.world.RaycastContext
 import org.eu.net.pool.fabric.cots.StoneCurse.stoneForm
 import poollovernathan.fabric.*
+import java.util.TreeSet
 import kotlin.contracts.ExperimentalContracts
 import kotlin.math.nextDown
+import kotlin.reflect.KFunction
 
 const val modid = "stars"
 val String.id get() = Identifier(modid, this)
@@ -199,6 +203,8 @@ object SunCurse: Curse(
     //  increase mob detection range
     //  blind viewers as well?
 }
+
+object NoInventoryCurse: Curse(Rarity.VERY_RARE, EquipmentSlot.CHEST)
 //endregion
 //region Events
 
@@ -260,8 +266,41 @@ fun LivingEntity.extraTick() {
                 }
             }
         }
+    }w
+    if (this is PlayerEntity) {
+        inventory.main.slice(0..<inventory.main.size).forEachIndexed { i, it ->
+            if (!it.isEmpty && it.run { inventorySlotAccessEvent.invoker()(the<PlayerEntity>(), i) } == InventorySlotAccess.LOCK_AND_DROP) {
+                inventory.main[i] = ItemStack.EMPTY
+                inventory.offerOrDrop(it)
+            }
+        }
+        effectiveLevel(NoInventoryCurse).let {
+            if (it >= 1) {
+                inventory.selectedSlot = 0
+            }
+        }
     }
 }
+
+enum class InventorySlotAccess {
+    ALLOW,
+    LOCK,
+    LOCK_AND_DROP,
+}
+typealias InventorySlotAccessEvent = context(ItemStack) PlayerEntity.(Int) -> InventorySlotAccess
+val inventorySlotAccessEvent: Event<InventorySlotAccessEvent> = EventFactory.createArrayBacked(InventorySlotAccessEvent::class.java) { args ->
+    { stack ->
+        val rets = args.map { f -> f(this, stack) }
+        if (rets.contains(InventorySlotAccess.LOCK_AND_DROP)) {
+            InventorySlotAccess.LOCK_AND_DROP
+        } else if (rets.contains(InventorySlotAccess.LOCK)) {
+            InventorySlotAccess.LOCK
+        } else {
+            InventorySlotAccess.ALLOW
+        }
+    }
+}
+
 //endregion
 //region Chores
 
@@ -356,6 +395,7 @@ fun init() {
         StoneCurse.register("stone".id)
         LevitationCurse.register("levitation".id)
         SunCurse.register("sun".id)
+        NoInventoryCurse.register("inventory/one_slot".id)
     }
     with(RegistryWrapper(Registries.STATUS_EFFECT)) {
         StoneCurse.Petrified.register("petrified".id)
@@ -364,6 +404,15 @@ fun init() {
         StoneCurse.Petrified.PetrPotion.register("petrify".id)
         StoneCurse.Petrified.LongPetrPotion.register("petrify_long".id)
         StoneCurse.Petrified.PermPetrPotion.register("petrify_permanent".id)
+    }
+
+    inventorySlotAccessEvent.register {
+        val lvl = effectiveLevel(NoInventoryCurse)
+        if (lvl > 1 || it in 1..35 && lvl > 0) {
+            InventorySlotAccess.LOCK_AND_DROP
+        } else {
+            InventorySlotAccess.ALLOW
+        }
     }
 
     CommandRegistrationCallback.EVENT.register { /* doctor */ d, r, e ->

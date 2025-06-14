@@ -50,6 +50,7 @@ repositories {
     // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
     // See https://docs.gradle.org/current/userguide/declaring_repositories.html
     // for more information about repositories.
+    mavenCentral()
     maven { url = uri("https://k51qzi5uqu5dm13gjm40nv9ii9kifawae4f3upf23soytez54i4588v6kb1uw3.ipns.dweb.link/") }
     maven { url = uri("https://maven.gegy.dev/releases") }
     maven { url = uri("https://maven.terraformersmc.com/releases") }
@@ -73,6 +74,8 @@ dependencies {
     include(modApi("dev.onyxstudios.cardinal-components-api:cardinal-components-entity:$cardinal_version")!!)
     include(modApi("dev.onyxstudios.cardinal-components-api:cardinal-components-world:$cardinal_version")!!)
     include(modApi("dev.onyxstudios.cardinal-components-api:cardinal-components-level:$cardinal_version")!!)
+    val mixinextras_version by project.properties
+    include(implementation(annotationProcessor("io.github.llamalad7:mixinextras-fabric:$mixinextras_version")!!)!!)
 }
 
 tasks.processResources {
@@ -82,12 +85,7 @@ tasks.processResources {
     filteringCharset = "UTF-8"
 
     filesMatching("fabric.mod.json") {
-        expand(
-            "version" to project.version,
-            "minecraft_version" to project.property("minecraft_version"),
-            "loader_version" to project.property("loader_version"),
-            "kotlin_loader_version" to project.property("kotlin_loader_version")
-        )
+        expand(project.properties)
     }
 }
 

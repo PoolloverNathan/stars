@@ -5,9 +5,13 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "BindingCurseEnchantmentMixin",
-    "LivingEntityMixin"
+    "LivingEntityMixin",
+    "PlayerInventoryMixin"
   ],
   "injectors": {
     "defaultRequire": 1
+  },
+  "mixinextras": {
+    "minVersion": "${mixinextras_version}"
   }
 }
