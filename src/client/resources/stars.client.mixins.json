@@ -13,6 +13,7 @@
   },
   "mixins": [
     "ArmorSlotMixin",
-    "LivingEntityMixin"
+    "LivingEntityMixin",
+    "SlotMixin"
   ]
 }
