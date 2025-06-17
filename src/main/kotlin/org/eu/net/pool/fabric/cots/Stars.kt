@@ -266,7 +266,7 @@ fun LivingEntity.extraTick() {
                 }
             }
         }
-    }w
+    }
     if (this is PlayerEntity) {
         inventory.main.slice(0..<inventory.main.size).forEachIndexed { i, it ->
             if (!it.isEmpty && it.run { inventorySlotAccessEvent.invoker()(the<PlayerEntity>(), i) } == InventorySlotAccess.LOCK_AND_DROP) {
