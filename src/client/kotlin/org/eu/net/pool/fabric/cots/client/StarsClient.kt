@@ -52,10 +52,10 @@ import java.util.function.Consumer
 fun init() {
     useChatEvent.register {
         val player = MinecraftClient.getInstance().player ?: return@register true
-        player.effectiveLevel(SilenceCurse, EquipmentSlot.HEAD) >= 0 || player.hasStatusEffect(StoneCurse.Petrified)
+        player.effectiveLevel(SilenceCurse, EquipmentSlot.HEAD) < 1 && !player.hasStatusEffect(StoneCurse.Petrified)
     }
     HotbarRendering.event.register {
-        when (val lvl = MinecraftClient.getInstance().player?.effectiveLevel(NoInventoryCurse)?.coerceIn(0..2)) {
+        when (MinecraftClient.getInstance().player?.effectiveLevel(NoInventoryCurse)?.coerceIn(0..2)) {
             0, null -> HotbarRendering.ALL
             1 -> HotbarRendering.SELECTED_SLOT
             2 -> HotbarRendering.NONE
@@ -64,12 +64,10 @@ fun init() {
     }
     postHUDEvent.register {
         val player = MinecraftClient.getInstance().player ?: return@register
-
         if (player.effectiveLevel(SunCurse, EquipmentSlot.HEAD) >= 1) {
             val window = MinecraftClient.getInstance().window
             var width: Double = window.scaledWidth.toDouble()
             var height: Double = window.scaledHeight.toDouble()
-
             RenderSystem.disableDepthTest();
             RenderSystem.depthMask(false);
             RenderSystem.enableBlend();
