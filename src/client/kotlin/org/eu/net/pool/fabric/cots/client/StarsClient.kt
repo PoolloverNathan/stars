@@ -31,6 +31,9 @@ import net.minecraft.predicate.item.ItemPredicate
 import net.minecraft.registry.Registries
 import net.minecraft.text.Text
 import net.minecraft.util.Identifier
+import org.eu.net.pool.common_curses.client.HotbarRendering
+import org.eu.net.pool.common_curses.client.postHUDEvent
+import org.eu.net.pool.common_curses.client.useChatEvent
 import org.eu.net.pool.fabric.cots.LevitationCurse
 import org.eu.net.pool.fabric.cots.NoInventoryCurse
 import org.eu.net.pool.fabric.cots.SilenceCurse
@@ -47,36 +50,46 @@ import java.util.Optional
 import java.util.function.Consumer
 
 fun init() {
+    useChatEvent.register {
+        val player = MinecraftClient.getInstance().player ?: return@register true
+        player.effectiveLevel(SilenceCurse, EquipmentSlot.HEAD) >= 0 || player.hasStatusEffect(StoneCurse.Petrified)
+    }
+    HotbarRendering.event.register {
+        when (val lvl = MinecraftClient.getInstance().player?.effectiveLevel(NoInventoryCurse)?.coerceIn(0..2)) {
+            0, null -> HotbarRendering.ALL
+            1 -> HotbarRendering.SELECTED_SLOT
+            2 -> HotbarRendering.NONE
+            else -> throw AssertionError()
+        }
+    }
+    postHUDEvent.register {
+        val player = MinecraftClient.getInstance().player ?: return@register
 
-}
+        if (player.effectiveLevel(SunCurse, EquipmentSlot.HEAD) >= 1) {
+            val window = MinecraftClient.getInstance().window
+            var width: Double = window.scaledWidth.toDouble()
+            var height: Double = window.scaledHeight.toDouble()
 
-fun GameRenderer.renderOverlays() {
-    val player = MinecraftClient.getInstance().player ?: return
-
-    if (player.effectiveLevel(SunCurse, EquipmentSlot.HEAD) >= 1) {
-        val window = MinecraftClient.getInstance().window
-        var width: Double = window.scaledWidth.toDouble()
-        var height: Double = window.scaledHeight.toDouble()
-
-        RenderSystem.disableDepthTest();
-        RenderSystem.depthMask(false);
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f)
-        RenderSystem.setShader(GameRenderer::getPositionProgram)
-        // RenderSystem.setShaderTexture(0, texture)
-        val tessellator = Tessellator.getInstance()
-        val bufferBuilder = tessellator.buffer;
-        bufferBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION);
-        bufferBuilder.vertex(0.0, height, -90.0).next();
-        bufferBuilder.vertex(width, height, -90.0).next();
-        bufferBuilder.vertex(width, 0.0, -90.0).next();
-        bufferBuilder.vertex(0.0, 0.0, -90.0).next();
-        tessellator.draw();
-        RenderSystem.defaultBlendFunc();
-        RenderSystem.disableBlend();
-        RenderSystem.depthMask(true);
-        RenderSystem.enableDepthTest();
+            RenderSystem.disableDepthTest();
+            RenderSystem.depthMask(false);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f)
+            RenderSystem.setShader(GameRenderer::getPositionProgram)
+            // RenderSystem.setShaderTexture(0, texture)
+            val tessellator = Tessellator.getInstance()
+            val bufferBuilder = tessellator.buffer;
+            bufferBuilder.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION);
+            bufferBuilder.vertex(0.0, height, -90.0).next();
+            bufferBuilder.vertex(width, height, -90.0).next();
+            bufferBuilder.vertex(width, 0.0, -90.0).next();
+            bufferBuilder.vertex(0.0, 0.0, -90.0).next();
+            tessellator.draw();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.disableBlend();
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
+        }
     }
 }
 

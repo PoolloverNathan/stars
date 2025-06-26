@@ -51,7 +51,8 @@ repositories {
     // See https://docs.gradle.org/current/userguide/declaring_repositories.html
     // for more information about repositories.
     mavenCentral()
-    maven { url = uri("https://k51qzi5uqu5dm13gjm40nv9ii9kifawae4f3upf23soytez54i4588v6kb1uw3.ipns.dweb.link/") }
+    mavenLocal()
+    maven { url = uri("https://maven-pool-net-eu-org.ipns.dweb.link/") }
     maven { url = uri("https://maven.gegy.dev/releases") }
     maven { url = uri("https://maven.terraformersmc.com/releases") }
     maven { url = uri("https://maven.ladysnake.org/releases") }
@@ -69,6 +70,7 @@ dependencies {
     modImplementation("dev.lambdaurora.lambdynamiclights:lambdynamiclights-api:4.1.2+1.20.1")
     modRuntimeOnly("dev.lambdaurora.lambdynamiclights:lambdynamiclights-runtime:4.1.2+1.20.1")
     include(modImplementation("poollovernathan.fabric:mod-tools:1.1.2+1.20.1")!!)
+    include(modImplementation("org.eu.net.pool:common-curses:1.1.0")!!)
     val cardinal_version by project.properties
     include(modApi("dev.onyxstudios.cardinal-components-api:cardinal-components-base:$cardinal_version")!!)
     include(modApi("dev.onyxstudios.cardinal-components-api:cardinal-components-entity:$cardinal_version")!!)
@@ -76,6 +78,10 @@ dependencies {
     include(modApi("dev.onyxstudios.cardinal-components-api:cardinal-components-level:$cardinal_version")!!)
     val mixinextras_version by project.properties
     include(implementation(annotationProcessor("io.github.llamalad7:mixinextras-fabric:$mixinextras_version")!!)!!)
+}
+
+configurations.all {
+    resolutionStrategy.cacheDynamicVersionsFor(10, "seconds")
 }
 
 tasks.processResources {

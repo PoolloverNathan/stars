@@ -44,8 +44,10 @@ import net.minecraft.util.hit.EntityHitResult
 import net.minecraft.util.hit.HitResult
 import net.minecraft.util.math.Vec3d
 import net.minecraft.world.RaycastContext
+import org.eu.net.pool.common_curses.SlotAccess
 import org.eu.net.pool.fabric.cots.StoneCurse.stoneForm
 import poollovernathan.fabric.*
+import java.awt.ComponentOrientation
 import java.util.TreeSet
 import kotlin.contracts.ExperimentalContracts
 import kotlin.math.nextDown
@@ -80,8 +82,6 @@ fun LivingEntity.effectiveLevel(e: Enchantment, vararg slots: EquipmentSlot) =
             innateCurses.curses.getOrDefault(e to it, 0)
         }
     }
-
-val LivingEntity.isSilenced @JvmName("isSilenced") get() = effectiveLevel(SilenceCurse) >= 1 || hasStatusEffect(StoneCurse.Petrified)
 
 interface InnateCurseCompatible
 
@@ -269,34 +269,24 @@ fun LivingEntity.extraTick() {
     }
     if (this is PlayerEntity) {
         inventory.main.slice(0..<inventory.main.size).forEachIndexed { i, it ->
-            if (!it.isEmpty && it.run { inventorySlotAccessEvent.invoker()(the<PlayerEntity>(), i) } == InventorySlotAccess.LOCK_AND_DROP) {
+            if (!it.isEmpty && SlotAccess.playerInventory.invoker()(the<PlayerEntity>(), i, it).dropItems) {
                 inventory.main[i] = ItemStack.EMPTY
                 inventory.offerOrDrop(it)
             }
         }
         effectiveLevel(NoInventoryCurse).let {
+            val comp = getComponent(playerInfoKey)
             if (it >= 1) {
-                inventory.selectedSlot = 0
+                inventory.selectedSlot = comp.settlerLockedSlot ?: inventory.selectedSlot.also {
+                    comp.settlerLockedSlot = it
+                    playerInfoKey.sync(this)
+                }
+            } else {
+                comp.settlerLockedSlot?.let {
+                    comp.settlerLockedSlot = null
+                    playerInfoKey.sync(this)
+                }
             }
-        }
-    }
-}
-
-enum class InventorySlotAccess {
-    ALLOW,
-    LOCK,
-    LOCK_AND_DROP,
-}
-typealias InventorySlotAccessEvent = context(ItemStack) PlayerEntity.(Int) -> InventorySlotAccess
-val inventorySlotAccessEvent: Event<InventorySlotAccessEvent> = EventFactory.createArrayBacked(InventorySlotAccessEvent::class.java) { args ->
-    { stack ->
-        val rets = args.map { f -> f(this, stack) }
-        if (rets.contains(InventorySlotAccess.LOCK_AND_DROP)) {
-            InventorySlotAccess.LOCK_AND_DROP
-        } else if (rets.contains(InventorySlotAccess.LOCK)) {
-            InventorySlotAccess.LOCK
-        } else {
-            InventorySlotAccess.ALLOW
         }
     }
 }
@@ -358,15 +348,32 @@ data class InnateCurseComponent(val entity: Entity, val curses: MutableMap<Pair<
     }
 }
 
+data class PlayerInfoComponent(val entity: Entity, var settlerLockedSlot: Int? = null): Component, AutoSyncedComponent {
+    override fun readFromNbt(p0: NbtCompound) {
+        settlerLockedSlot = if (p0.getBoolean("SettlerActive")) { p0.getInt("SettlerSlot") } else { null }
+    }
+
+    override fun writeToNbt(p0: NbtCompound) {
+        if (settlerLockedSlot == null) {
+            p0.putBoolean("SettlerActive", false)
+        } else {
+            p0.putBoolean("SettlerActive", true)
+            p0.putInt("SettlerSlot", settlerLockedSlot!!)
+        }
+    }
+}
+
 val LivingEntity.innateCurses: InnateCurseComponent get() = getComponent(innateCurseKey)
 
 val EquipmentSlot.translationKey get() = "slot.equipment.$ordinal"
 val innateCurseKey: ComponentKey<InnateCurseComponent> = ComponentRegistry.getOrCreate("innate_curses".id, InnateCurseComponent::class.java)
+val playerInfoKey: ComponentKey<PlayerInfoComponent> = ComponentRegistry.getOrCreate("info".id, PlayerInfoComponent::class.java)
 
 // TODO: more component factory types (chunk, world, level)
 fun entityComponents(factory: EntityComponentFactoryRegistry) {
     factory.registerFor(LivingEntity::class.java, innateCurseKey, ::InnateCurseComponent)
     factory.registerForPlayers(innateCurseKey, ::InnateCurseComponent, RespawnCopyStrategy.CHARACTER)
+    factory.registerForPlayers(playerInfoKey, ::PlayerInfoComponent, RespawnCopyStrategy.LOSSLESS_ONLY)
 }
 
 object TranslationKeys {
@@ -406,12 +413,21 @@ fun init() {
         StoneCurse.Petrified.PermPetrPotion.register("petrify_permanent".id)
     }
 
-    inventorySlotAccessEvent.register {
-        val lvl = effectiveLevel(NoInventoryCurse)
-        if (lvl > 1 || it in 1..35 && lvl > 0) {
-            InventorySlotAccess.LOCK_AND_DROP
+    SlotAccess.playerInventory.register { player, slot, stack ->
+        if (run a@ {
+            val lvl = player.effectiveLevel(NoInventoryCurse)
+            if (lvl <= 0 || slot >= 36 || slot < 0) return@a false
+            if (lvl > 1 || slot > 9) return@a true
+            // now to figure out what slot we're locking
+            val lockedSlot = player.getComponent(playerInfoKey).settlerLockedSlot
+            // give a grace period for a tick, in case we haven't chosen a slot yet
+            lockedSlot ?: return@a false
+            // otherwise, keep only the locked slot
+            slot != lockedSlot
+        }) {
+            SlotAccess.LOCK_AND_DROP
         } else {
-            InventorySlotAccess.ALLOW
+            SlotAccess.ALLOW
         }
     }
 

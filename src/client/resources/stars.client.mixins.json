@@ -3,17 +3,12 @@
   "minVersion": "0.8",
   "package": "org.eu.net.pool.fabric.cots.mixin.client",
   "compatibilityLevel": "JAVA_17",
-  "client": [
-    "ChatScreenMixin",
-    "GameRendererMixin",
-    "InGameHudMixin"
-  ],
+  "client": [],
   "injectors": {
     "defaultRequire": 1
   },
   "mixins": [
     "ArmorSlotMixin",
-    "LivingEntityMixin",
-    "SlotMixin"
+    "LivingEntityMixin"
   ]
 }

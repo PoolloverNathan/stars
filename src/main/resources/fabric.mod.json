@@ -42,7 +42,8 @@
   },
   "custom": {
     "cardinal-components": [
-      "stars:innate_curses"
+      "stars:innate_curses",
+      "stars:info"
     ]
   }
 }
